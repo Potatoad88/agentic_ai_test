@@ -203,7 +203,7 @@ db_uri = (
     f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
 )
 
-nl2sql = NL2SQLTool(db_uri=db_uri, SCHEMA_HINT=SCHEMA_HINT)
+nl2sql = NL2SQLTool(db_uri=db_uri, schema_hint=SCHEMA_HINT)
 
 def serialize_dates(obj):
     if isinstance(obj, dict):
@@ -242,10 +242,14 @@ def search_nj_db(query: Optional[str] = None) -> dict:
 nl2sql_agent = LlmAgent(
     name="nl2sql_agent",
     model=AGENT_MODEL,
-    description="Agent that runs natural language queries on NewJeans' music database.",
+    description="Agent that answers questions about the NewJeans music database by converting natural language queries into SQL and returning the results. The database contains tables for members and songs.",
     instruction=(
-        "Use the tool to convert user questions into SQL queries. "
-        "This database includes tables for members and songs. Do not answer without using the tool."
+        "You are an expert at translating natural language questions into SQL queries for a PostgreSQL database. "
+        "Always use the provided schema to generate your queries. "
+        "The database has two tables: 'members' (with columns member_id, name, birth_date, position, debut_date) and 'songs' (with columns song_id, title, release_date, duration, genre). "
+        "When a user asks a question, generate a SQL query that answers it, execute the query, and return the result. "
+        "If the question is ambiguous, ask the user for clarification. "
+        "Example: For 'What is Minji's birthdate?', generate: SELECT birth_date FROM members WHERE name = 'Minji';"
     ),
     tools=[search_nj_db]
 )
@@ -294,31 +298,21 @@ root_agent = Agent(
 )
 
 async def call_agent_async(query: str, runner, user_id, session_id):
-  """Sends a query to the agent and prints the final response."""
-  print(f"\n>>> User Query: {query}")
-
-  # Prepare the user's message in ADK format
-  content = types.Content(role='user', parts=[types.Part(text=query)])
-
-  final_response_text = "Agent did not produce a final response." # Default
-
-  # Key Concept: run_async executes the agent logic and yields Events.
-  # We iterate through events to find the final answer.
-  async for event in runner.run_async(user_id=user_id, session_id=session_id, new_message=content):
-      # You can uncomment the line below to see *all* events during execution
-      # print(f"  [Event] Author: {event.author}, Type: {type(event).__name__}, Final: {event.is_final_response()}, Content: {event.content}")
-
-      # Key Concept: is_final_response() marks the concluding message for the turn.
-      if event.is_final_response():
-          if event.content and event.content.parts:
-             # Assuming text response in the first part
-             final_response_text = event.content.parts[0].text
-          elif event.actions and event.actions.escalate: # Handle potential errors/escalations
-             final_response_text = f"Agent escalated: {event.error_message or 'No specific message.'}"
-          # Add more checks here if needed (e.g., specific error codes)
-          break # Stop processing events once the final response is found
-
-  print(f"<<< Agent Response: {final_response_text}")
+    print(f"\n>>> User Query: {query}")
+    content = types.Content(role='user', parts=[types.Part(text=query)])
+    final_response_text = "Agent did not produce a final response."
+    gen = runner.run_async(user_id=user_id, session_id=session_id, new_message=content)
+    try:
+        async for event in gen:
+            if event.is_final_response():
+                if event.content and event.content.parts:
+                    final_response_text = event.content.parts[0].text
+                elif event.actions and event.actions.escalate:
+                    final_response_text = f"Agent escalated: {event.error_message or 'No specific message.'}"
+                break
+    finally:
+        await gen.aclose()
+    print(f"<<< Agent Response: {final_response_text}")
 
 async def main():
     APP_NAME = "cli_agent"
