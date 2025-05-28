@@ -40,5 +40,5 @@ python agent.py
 
 ## Miscellaneous
 
-- The `parent_folder` and `nb.ipynb` files/folders were used for tutorials and experimentation.  
+- The `parent_folder` was used for tutorials and experimentation.  
   They are not required for running the main agent code.
