@@ -38,6 +38,25 @@ python agent.py
 - **agentmail**: Enables email sending capabilities via an agentic interface.
 - **CrewAI NL2SQL Tool**: Allows natural language to SQL conversion for querying databases using plain English.
 
+## Known Issues
+
+### agentmail-mcp / Email Agent Tool Incompatibility
+
+If you attempt to use the email agent (agentmail-mcp) with Google ADK and Gemini/Vertex AI function calling, you may encounter an error like:
+
+Unable to submit request because list_inboxes functionDeclaration parameters.last_key schema specified other fields alongside any_of. When using any_of, it must be the only field set. Learn more: https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling
+
+**Explanation:**  
+This is due to an incompatibility between the OpenAPI/function schema used by `agentmail-mcp` and Google Vertex AI's function calling requirements. Specifically, the schema for some tool parameters (such as `last_key` in `list_inboxes`) uses `anyOf` alongside other fields, which is not allowed by Vertex AI.
+
+**Workaround:**  
+- There is currently no workaround from the agent/user side.  
+- You can check for updates to `agentmail-mcp` and `google-adk` that may resolve this issue.
+- If the issue persists, report it to the maintainers of `agentmail-mcp` or Google ADK.
+
+**Reference:**  
+[Vertex AI Function Calling Schema Requirements](https://cloud.google.com/vertex-ai/generative-ai/docs/multimodal/function-calling)
+
 ## Miscellaneous
 
 - The `parent_folder` was used for tutorials and experimentation.  
