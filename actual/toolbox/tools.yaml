@@ -1,0 +1,51 @@
+sources:
+  my-pg-source:
+    kind: postgres
+    host: 127.0.0.1
+    port: 5432
+    database: toolbox_db
+    user: toolbox_user
+    password: Pa$$w0rd
+
+tools:
+  list-members:
+    kind: postgres-sql
+    source: my-pg-source
+    description: List all NewJeans members.
+    statement: SELECT * FROM members;
+
+  find-member-by-name:
+    kind: postgres-sql
+    source: my-pg-source
+    description: Find a NewJeans member by name.
+    parameters:
+      - name: name
+        type: string
+        description: The member's name (e.g., Hanni)
+    statement: SELECT * FROM members WHERE name ILIKE '%' || $1 || '%';
+
+  list-songs:
+    kind: postgres-sql
+    source: my-pg-source
+    description: List all songs released by NewJeans.
+    statement: SELECT * FROM songs;
+
+  find-song-by-title:
+    kind: postgres-sql
+    source: my-pg-source
+    description: Find a NewJeans song by its title.
+    parameters:
+      - name: title
+        type: string
+        description: The title of the song (e.g., Hype Boy)
+    statement: SELECT * FROM songs WHERE title ILIKE '%' || $1 || '%';
+
+toolsets:
+  my-toolset:
+    - list-members
+    - find-member-by-name
+    - list-songs
+    - find-song-by-title
+
+
+# ./toolbox --tools-file tools.yaml --address 127.0.0.1 --port 5000
