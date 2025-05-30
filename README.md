@@ -37,6 +37,8 @@ python agent.py
 - **MCPToolbox**: Provides tools for connecting and interacting with PostgreSQL databases.
 - **agentmail**: Enables email sending capabilities via an agentic interface.
 - **CrewAI NL2SQL Tool**: Allows natural language to SQL conversion for querying databases using plain English.
+- **Xero**: Integrates with the Xero MCP server ([github.com/XeroAPI/xero-mcp-server](https://github.com/XeroAPI/xero-mcp-server)) to enable agent access to Xero accounting tools.
+- **Opentelemetry**: Enables tracing and monitoring, with support for exporting traces to Langfuse.
 
 ## Known Issues
 
