@@ -15,6 +15,10 @@
 # @title Import necessary libraries
 import asyncio
 import os
+import weaviate
+import json
+import base64
+import logging
 from dotenv import load_dotenv
 from google.adk.agents import Agent, LlmAgent
 from google.adk.sessions import InMemorySessionService
@@ -25,19 +29,69 @@ from google.adk.tools.tool_context import ToolContext
 from google.adk.tools.mcp_tool.mcp_toolset import MCPToolset, StdioServerParameters, SseServerParams
 from google.adk.tools.agent_tool import AgentTool
 from crewai_tools import NL2SQLTool
+from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.context import _RUNTIME_CONTEXT
+from contextvars import Token
 from typing import Optional
-import weaviate
-import json
 from datetime import date
 
 # Use one of the model constants defined earlier
 MODEL_GEMINI_2_0_FLASH = "gemini-2.0-flash"
+AGENT_MODEL = MODEL_GEMINI_2_0_FLASH # Starting with Gemini
 
 load_dotenv()
 
-# @title Define the Search Agent
+langfuse_public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+langfuse_secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+LANGFUSE_AUTH=base64.b64encode(f"{langfuse_public_key}:{langfuse_secret_key}".encode()).decode()
 
-AGENT_MODEL = MODEL_GEMINI_2_0_FLASH # Starting with Gemini
+os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "https://cloud.langfuse.com/api/public/otel" # EU data region
+os.environ["OTEL_EXPORTER_OTLP_HEADERS"] = f"Authorization=Basic {LANGFUSE_AUTH}"
+
+original_detach = _RUNTIME_CONTEXT.detach
+
+def safe_detach(token: Token):
+    try:
+        original_detach(token)
+    except ValueError as e:
+        logging.warning(f"[OpenTelemetry Patch] Ignored context detach error: {e}")
+
+_RUNTIME_CONTEXT.detach = safe_detach
+
+provider = trace.get_tracer_provider()
+if hasattr(provider, "add_span_processor"):  # Only works if it’s the SDK provider
+    exporter = OTLPSpanExporter()
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+
+# @title Define Xero Agent
+
+xero_client_id = os.environ.get("XERO_CLIENT_ID")
+xero_client_secret = os.environ.get("XERO_CLIENT_SECRET")
+
+xero_agent = LlmAgent(
+    model=AGENT_MODEL,
+    name='xero_agent',
+    instruction='Assist the user with financial tasks using Xero tools.',
+    tools=[
+        MCPToolset(
+            connection_params=StdioServerParameters(
+                command = "node",
+                args = ["temp-xero\\dist\\index.js"],
+                # Pass the Xero API credentials as environment variables to the npx process
+                env={
+                    "XERO_CLIENT_ID": xero_client_id,
+                    "XERO_CLIENT_SECRET": xero_client_secret
+                }
+            ),
+        )
+    ],
+)
+
+# @title Define the Search Agent
 
 def list_files(limit: Optional[int] = 10) -> dict:
     """List all documents in the Weaviate collection."""
@@ -338,7 +392,7 @@ async def main():
     memory_service = InMemoryMemoryService() 
 
     runner = Runner(
-        agent=nl2sql_agent,
+        agent=xero_agent,
         app_name=APP_NAME,
         session_service=session_service,
         memory_service=memory_service, 
