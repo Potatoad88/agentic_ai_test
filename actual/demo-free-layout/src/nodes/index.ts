@@ -6,6 +6,8 @@ import { EndNodeRegistry } from './end';
 import { WorkflowNodeType } from './constants';
 import { ConditionNodeRegistry } from './condition';
 import { CommentNodeRegistry } from './comment';
+import { AgentNodeRegistry } from './agent';
+import { ToolNodeRegistry } from './tool';
 export { WorkflowNodeType } from './constants';
 
 export const nodeRegistries: FlowNodeRegistry[] = [
@@ -15,6 +17,8 @@ export const nodeRegistries: FlowNodeRegistry[] = [
   LLMNodeRegistry,
   LoopNodeRegistry,
   CommentNodeRegistry,
+  AgentNodeRegistry,
+  ToolNodeRegistry,
 ];
 
 export const visibleNodeRegistries = nodeRegistries.filter(
